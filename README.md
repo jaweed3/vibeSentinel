@@ -4,6 +4,15 @@
 
 ---
 
+## 📖 Documentation
+
+*   [**🌐 Overview**](./docs/overview.md): Project goals, target problem, and benefits.
+*   [**🏗️ Architecture**](./docs/architecture.md): Deep dive into crate structure and data flow.
+*   [**🚦 Getting Started**](./docs/getting-started.md): Prerequisites, installation, and deployment.
+*   [**📈 Current State & Roadmap**](./docs/current-state-future-implementation.md): Milestone tracking and future vision.
+
+---
+
 ## 🚀 Overview
 
 VibeSentinel is an end-to-end industrial IoT solution designed to monitor machinery health via vibration analysis. It bypasses the cloud for real-time inference, using a lightweight Deep Learning model (Autoencoder) to detect anomalies directly on the hardware.
