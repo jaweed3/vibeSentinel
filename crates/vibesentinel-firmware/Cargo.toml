@@ -1,0 +1,23 @@
+[package]
+name = "vibesentinel-firmware"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vibesentinel-features = { path = "../vibesentinel-features" }
+vibesentinel-model    = { path = "../vibesentinel-model" }
+
+esp-idf-hal  = "0.43"
+esp-idf-sys  = "0.34"
+esp-idf-svc  = "0.48"
+
+embedded-hal = "1"
+log = "0.4"
+esp-println  = { version = "0.13", features = ["esp32s3"] }
+anyhow = "1.0"
+
+[build-dependencies]
+embuild = "0.32"
+
+[package.metadata.espflash]
+partition_table = "partitions.csv"
