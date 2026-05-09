@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "crates/vibesentinel-features",
+    "crates/vibesentinel-model",
+    "crates/vibesentinel-trainer",
+    "crates/vibesentinel-firmware",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
