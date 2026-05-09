@@ -1,0 +1,2 @@
+pub const SAMPLE_RATE_HZ: u32 = 200;
+pub const SAMPLE_INTERVAL_MS: u32 = 1000 / SAMPLE_RATE_HZ;
