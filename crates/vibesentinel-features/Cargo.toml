@@ -1,0 +1,12 @@
+[package]
+name = "vibesentinel-features"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+microfft = "0.6"
+libm = "0.2"
+
+[features]
+default = []
+std = []
