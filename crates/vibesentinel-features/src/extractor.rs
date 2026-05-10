@@ -1,6 +1,6 @@
 use crate::{stats::*, fft::*};
 
-pub const FEATURE_DIM: usize = 20;
+pub const FEATURE_DIM: usize = 26;
 
 pub struct AccelWindow {
     pub x: [f32; WINDOW_SIZE],
@@ -8,16 +8,14 @@ pub struct AccelWindow {
     pub z: [f32; WINDOW_SIZE],
 }
 
-/// Extract 20-dimensional feature vector from one window.
-/// Stats are computed first (read-only), then FFT is performed
-/// using a single reused scratch buffer to minimize stack pressure.
+/// Extract 26-dimensional feature vector from one window.
+/// Per-axis: RMS, Peak, Kurtosis, Crest Factor + 4 FFT bins = 8 per axis.
+/// Cross-axis: axial/radial ratio, total RMS.
 pub fn extract_features(window: &AccelWindow) -> [f32; FEATURE_DIM] {
-    // Phase 1: read-only stats on all three axes
     let (rms_x, peak_x, kurt_x, crest_x) = axis_stats(&window.x);
     let (rms_y, peak_y, kurt_y, crest_y) = axis_stats(&window.y);
     let (rms_z, peak_z, kurt_z, crest_z) = axis_stats(&window.z);
 
-    // Phase 2: in-place FFT using a single scratch buffer, reused per axis
     let mut scratch: [f32; WINDOW_SIZE];
     let fft_x: [f32; FFT_BINS];
     let fft_y: [f32; FFT_BINS];
@@ -38,9 +36,12 @@ pub fn extract_features(window: &AccelWindow) -> [f32; FEATURE_DIM] {
     };
 
     [
-        rms_x, peak_x, kurt_x, crest_x, fft_x[0], fft_x[1],
-        rms_y, peak_y, kurt_y, crest_y, fft_y[0], fft_y[1],
-        rms_z, peak_z, kurt_z, crest_z, fft_z[0], fft_z[1],
+        rms_x, peak_x, kurt_x, crest_x,
+        fft_x[0], fft_x[1], fft_x[2], fft_x[3],
+        rms_y, peak_y, kurt_y, crest_y,
+        fft_y[0], fft_y[1], fft_y[2], fft_y[3],
+        rms_z, peak_z, kurt_z, crest_z,
+        fft_z[0], fft_z[1], fft_z[2], fft_z[3],
         axial_radial,
         total_rms,
     ]

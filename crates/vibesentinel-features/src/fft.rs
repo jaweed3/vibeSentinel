@@ -2,12 +2,21 @@ use microfft::real::rfft_128;
 use libm::sqrtf;
 
 pub const WINDOW_SIZE: usize = 128;
-pub const FFT_BINS: usize = 2;
+pub const FFT_BINS: usize = 4;
+
+/// Apply Hann window in-place to reduce spectral leakage.
+pub fn apply_hann(buf: &mut [f32; WINDOW_SIZE]) {
+    let n = WINDOW_SIZE as f32;
+    for i in 0..WINDOW_SIZE {
+        let i_f = i as f32;
+        buf[i] *= 0.5 * (1.0 - libm::cosf(2.0 * core::f32::consts::PI * i_f / (n - 1.0)));
+    }
+}
 
 /// Compute magnitude of first N FFT bins from 128 raw samples.
-/// Takes `buf` as `&mut` — `rfft_128` destroys the input in-place.
-/// Caller should provide a scratch buffer to avoid extra copies.
+/// Applies Hann window, then FFT. Input buffer is destroyed.
 pub fn fft_magnitudes(buf: &mut [f32; WINDOW_SIZE]) -> [f32; FFT_BINS] {
+    apply_hann(buf);
     let spectrum = rfft_128(buf);
 
     let mut result = [0.0f32; FFT_BINS];
@@ -32,14 +41,8 @@ mod tests {
             samples[i] = (2.0 * PI * 50.0 * t).sin();
         }
 
-        let mut buf = samples;
-        let spectrum = rfft_128(&mut buf);
-
-        // At 200Hz sample rate, 128 samples, bin resolution = 200/128 = 1.5625 Hz
-        // 50Hz should be at bin 50 / 1.5625 = 32
-        let re = spectrum[32].re;
-        let im = spectrum[32].im;
-        let mag_32 = sqrtf(re * re + im * im);
+        apply_hann(&mut samples);
+        let spectrum = rfft_128(&mut samples);
 
         let mut max_mag = 0.0;
         let mut max_bin = 0;
@@ -53,6 +56,8 @@ mod tests {
             }
         }
 
+        // With Hann window, the dominant bin for 50Hz should still be at bin 32,
+        // though the peak is slightly broader due to windowing.
         assert_eq!(max_bin, 32);
     }
 
@@ -61,5 +66,16 @@ mod tests {
         let mut buf = [0.0f32; WINDOW_SIZE];
         let result = fft_magnitudes(&mut buf);
         assert_eq!(result.len(), FFT_BINS);
+    }
+
+    #[test]
+    fn test_hann_window_positive() {
+        let mut buf = [1.0f32; WINDOW_SIZE];
+        apply_hann(&mut buf);
+        // Hann window should be zero at edges
+        assert!((buf[0] - 0.0).abs() < 1e-6);
+        assert!((buf[WINDOW_SIZE - 1] - 0.0).abs() < 1e-6);
+        // And positive in the middle
+        assert!(buf[WINDOW_SIZE / 2] > 0.9);
     }
 }
