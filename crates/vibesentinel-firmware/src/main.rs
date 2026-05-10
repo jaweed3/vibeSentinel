@@ -4,7 +4,7 @@ use esp_idf_hal::{peripherals::Peripherals, delay::FreeRtos};
 use esp_idf_hal::task::watchdog::TWDTDriver;
 use esp_idf_sys as _;
 
-use vibesentinel_features::{extractor::*, fft::WINDOW_SIZE, stats::variance};
+use vibesentinel_features::{extractor::*, fft::WINDOW_SIZE, stats::variance, INPUT_DIM, OUTPUT_DIM};
 use vibesentinel_model::{arch::*, weights::ANOMALY_THRESHOLD};
 
 mod imu;
@@ -14,6 +14,66 @@ mod debug;
 
 use config::*;
 use debug::DiagnosticLogger;
+
+// ── Window processing result ─────────────────────────────────
+
+struct ProcessedWindow {
+    mse: f32,
+    is_anomaly: bool,
+    features: [f32; INPUT_DIM],
+    reconstruction: [f32; OUTPUT_DIM],
+}
+
+/// Process one full window of 128 samples through the full pipeline.
+/// Returns None if the window should be skipped (frozen sensor, NaN).
+fn process_window(
+    buf_x: &[f32; WINDOW_SIZE],
+    buf_y: &[f32; WINDOW_SIZE],
+    buf_z: &[f32; WINDOW_SIZE],
+    window_num: usize,
+    logger: &mut DiagnosticLogger,
+) -> Option<ProcessedWindow> {
+    // ── Sensor health check ──────────────────────────────────
+    let var_x = variance(buf_x);
+    let var_y = variance(buf_y);
+    let var_z = variance(buf_z);
+    if var_x < MIN_SIGNAL_VARIANCE && var_y < MIN_SIGNAL_VARIANCE && var_z < MIN_SIGNAL_VARIANCE {
+        logger.log_sensor_frozen(var_x, var_y, var_z);
+        return None;
+    }
+
+    // ── Feature extraction ───────────────────────────────────
+    let window = AccelWindow { x: *buf_x, y: *buf_y, z: *buf_z };
+    let raw_features = extract_features(&window);
+
+    // ── NaN guard on features ────────────────────────────────
+    for (i, &v) in raw_features.iter().enumerate() {
+        if v.is_nan() || v.is_infinite() {
+            logger.log_feature_nan(i, v, window_num);
+            return None;
+        }
+    }
+
+    // ── Normalize + Inference ────────────────────────────────
+    let features = normalize_features(&raw_features);
+    let (reconstruction, _latent) = forward(&features);
+    let mse = reconstruction_error(&features, &reconstruction);
+
+    // ── NaN guard on reconstruction ──────────────────────────
+    if mse.is_nan() || mse.is_infinite() {
+        logger.log_inference_nan(mse, window_num);
+        return None;
+    }
+
+    Some(ProcessedWindow {
+        mse,
+        is_anomaly: mse > ANOMALY_THRESHOLD,
+        features,
+        reconstruction,
+    })
+}
+
+// ── Main ─────────────────────────────────────────────────────
 
 fn main() -> anyhow::Result<()> {
     esp_idf_sys::link_patches();
@@ -29,7 +89,6 @@ fn main() -> anyhow::Result<()> {
     log::info!("[INIT] WDT: armed ({}s timeout) | OK", WDT_TIMEOUT_SECS);
 
     // ── I2C & IMU ────────────────────────────────────────────
-    // XIAO ESP32S3 Sense: I2C on GPIO6 (SDA) / GPIO7 (SCL)
     let i2c = esp_idf_hal::i2c::I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio6,
@@ -38,7 +97,6 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut imu = imu::ImuDriver::new(i2c, imu::AccelRange::G8)?;
-    // XIAO ESP32S3 Sense: user LED on GPIO21
     let mut led = alert::LedAlert::new(peripherals.pins.gpio21);
 
     // ── Boot Diagnostics ─────────────────────────────────────
@@ -51,7 +109,7 @@ fn main() -> anyhow::Result<()> {
         PIN_I2C_SDA, PIN_I2C_SCL, I2C_BAUDRATE_HZ / 1000);
     log::info!("[INIT] IMU range: {} | addr: 0x{:02X}", IMU_DEFAULT_RANGE, IMU_I2C_ADDR);
     log::info!("[INIT] Sampling: {}Hz ({}ms period)", SAMPLE_RATE_HZ, SAMPLE_INTERVAL_MS);
-    log::info!("[INIT] Sensor health: min variance = {}", MIN_SIGNAL_VARIANCE);
+    log::info!("[INIT] Feature dim: {} | Window: {} samples", INPUT_DIM, WINDOW_SIZE);
     log::info!("══════════════════════════════════════════");
     log::info!("System ready. Waiting for first window...");
 
@@ -64,7 +122,6 @@ fn main() -> anyhow::Result<()> {
     let mut was_anomaly = false;
     let mut last_wdt_feed = Instant::now();
     let mut last_sample = Instant::now();
-    let mut last_health_report = Instant::now();
 
     // ── Main Loop ────────────────────────────────────────────
     loop {
@@ -86,19 +143,21 @@ fn main() -> anyhow::Result<()> {
             Ok(v) => v,
             Err(e) => {
                 let count = imu.error_count();
-                log::error!("[E001] I2C err #{}: {}", count, e);
+                logger.log_i2c_error(count);
                 if count >= MAX_I2C_ERRORS {
                     if let Err(re) = imu.recover() {
-                        log::error!("[E009] Recovery FAILED: {}", re);
+                        logger.log_i2c_recovery_fail(&re);
+                    } else {
+                        logger.log_i2c_recovery_ok();
                     }
                 }
                 continue;
             }
         };
 
-        // Saturation check — warn if signal hitting range limit
-        if let Some(warn) = imu.check_saturation(x, y, z) {
-            log::warn!("{}", warn);
+        // Saturation check
+        if imu.check_saturation(x, y, z).is_some() {
+            logger.log_saturation();
         }
 
         let slot = sample_idx % WINDOW_SIZE;
@@ -111,85 +170,47 @@ fn main() -> anyhow::Result<()> {
         if sample_idx % WINDOW_SIZE == 0 {
             let wnum = sample_idx / WINDOW_SIZE;
 
-            // Sensor health check
-            let var_x = variance(&buf_x);
-            let var_y = variance(&buf_y);
-            let var_z = variance(&buf_z);
-            if var_x < MIN_SIGNAL_VARIANCE && var_y < MIN_SIGNAL_VARIANCE && var_z < MIN_SIGNAL_VARIANCE {
-                log::error!(
-                    "[E003] SENSOR_FROZEN (window #{}) | var_x={:.10} var_y={:.10} var_z={:.10}",
-                    wnum, var_x, var_y, var_z
-                );
-                log::error!("[E003] Tap sensor, check wiring, verify 3.3V power to IMU");
-                // Blink pattern: fast triple blink
-                led.set(true); FreeRtos::delay_ms(100);
-                led.set(false); FreeRtos::delay_ms(100);
-                led.set(true); FreeRtos::delay_ms(100);
-                led.set(false); FreeRtos::delay_ms(100);
-                led.set(true); FreeRtos::delay_ms(100);
-                led.set(false);
-                continue;
-            }
+            logger.start_window_timer();
 
-            // Feature extraction + inference
-            let window = AccelWindow { x: buf_x, y: buf_y, z: buf_z };
-            let raw_features = extract_features(&window);
+            match process_window(&buf_x, &buf_y, &buf_z, wnum, &mut logger) {
+                Some(result) => {
+                    logger.end_window_timer();
+                    logger.record_mse(result.mse);
 
-            // NaN guard — check features before feeding to model
-            let mut feature_nan = false;
-            for (i, &v) in raw_features.iter().enumerate() {
-                if v.is_nan() || v.is_infinite() {
-                    log::error!("[E007] FEATURE_NAN: feature[{}] = {} | window #{} | Input anomaly", i, v, wnum);
-                    feature_nan = true;
-                    break;
+                    // Track anomaly sessions
+                    if result.is_anomaly && !was_anomaly {
+                        logger.on_anomaly_start();
+                    } else if !result.is_anomaly && was_anomaly {
+                        logger.on_anomaly_end();
+                    }
+
+                    // State change logging
+                    logger.log_window_result(wnum, result.mse, ANOMALY_THRESHOLD, result.is_anomaly, was_anomaly);
+
+                    // On anomaly, log per-feature error breakdown
+                    if result.is_anomaly && !was_anomaly {
+                        logger.log_top_feature_errors(&result.features, &result.reconstruction);
+                    }
+
+                    was_anomaly = result.is_anomaly;
+                    led.set(result.is_anomaly);
+                }
+                None => {
+                    logger.end_window_timer();
+                    // Frozen sensor — blink pattern
+                    led.set(true); FreeRtos::delay_ms(100);
+                    led.set(false); FreeRtos::delay_ms(100);
+                    led.set(true); FreeRtos::delay_ms(100);
+                    led.set(false); FreeRtos::delay_ms(100);
+                    led.set(true); FreeRtos::delay_ms(100);
+                    led.set(false);
                 }
             }
-            if feature_nan {
-                continue;
-            }
-
-            let features = normalize_features(&raw_features);
-            let (reconstruction, _latent) = forward(&features);
-            let error = reconstruction_error(&features, &reconstruction);
-
-            // NaN guard — check reconstruction
-            if error.is_nan() || error.is_infinite() {
-                log::error!("[E008] INFERENCE_NAN: MSE={} | window #{} | Check weights.rs integrity", error, wnum);
-                continue;
-            }
-
-            let is_anomaly = error > ANOMALY_THRESHOLD;
-
-            // Log on state change only
-            if is_anomaly != was_anomaly {
-                if is_anomaly {
-                    log::warn!(
-                        "[W#{:<6}] !!! ANOMALY !!! MSE={:.6} > thresh={:.6} | LED ON",
-                        wnum, error, ANOMALY_THRESHOLD
-                    );
-                } else {
-                    log::info!(
-                        "[W#{:<6}] NORMAL returned | MSE={:.6} < thresh={:.6} | LED OFF",
-                        wnum, error, ANOMALY_THRESHOLD
-                    );
-                }
-                was_anomaly = is_anomaly;
-            }
-
-            led.set(is_anomaly);
 
             // Periodic health report
-            if last_health_report.elapsed().as_secs() >= HEALTH_REPORT_INTERVAL_SECS {
+            if logger.should_health_report() {
                 let heap_now = unsafe { esp_idf_sys::esp_get_free_heap_size() };
-                log::info!(
-                    "[HEALTH] uptime={:.0}s | windows={} | heap={}KB free | I2C errors: {}",
-                    logger.uptime_secs(),
-                    wnum,
-                    heap_now / 1024,
-                    imu.error_count(),
-                );
-                DiagnosticLogger::check_heap(heap_now);
-                last_health_report = Instant::now();
+                logger.log_health_report(heap_now);
             }
         }
     }
