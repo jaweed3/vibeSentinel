@@ -1,4 +1,4 @@
-
+#[inline]
 pub fn linear_forward<const IN: usize, const OUT: usize>(
     x:   &[f32; IN],
     w:   &[[f32; IN]; OUT],
