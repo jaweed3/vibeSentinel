@@ -6,6 +6,7 @@
 
 ## 📖 Documentation
 
+*   [**📖 Intern Guide**](./docs/intern-guide.md): Panduan lengkap dari nol — cara pakai, arsitektur, testing, troubleshooting, FAQ.
 *   [**🌐 Overview**](./docs/overview.md): Project goals, target problem, and benefits.
 *   [**🏗️ Architecture**](./docs/architecture.md): Deep dive into crate structure and data flow.
 *   [**🚦 Getting Started**](./docs/getting-started.md): Prerequisites, installation, and deployment.

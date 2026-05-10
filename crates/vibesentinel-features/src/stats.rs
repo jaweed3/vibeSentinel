@@ -3,6 +3,9 @@ use libm::{sqrtf, fabsf, powf};
 /// Root Mean Square — energy proxy
 pub fn rms(samples: &[f32]) -> f32 {
     let n = samples.len() as f32;
+    if n < 1.0 {
+        return 0.0;
+    }
     let sum_sq: f32 = samples.iter().map(|&x| x * x).sum();
     sqrtf(sum_sq / n)
 }
@@ -12,21 +15,50 @@ pub fn peak(samples: &[f32]) -> f32 {
     samples.iter().map(|&x| fabsf(x)).fold(0.0f32, f32::max)
 }
 
-/// Crest Factor = Peak / RMS
-pub fn crest_factor(samples: &[f32]) -> f32 {
-    let r = rms(samples);
-    if r < 1e-10 { return 0.0; }
-    peak(samples) / r
+/// Variance (population): E[(x - mu)^2]
+pub fn variance(samples: &[f32]) -> f32 {
+    let n = samples.len() as f32;
+    if n < 2.0 {
+        return 0.0;
+    }
+    let mean: f32 = samples.iter().sum::<f32>() / n;
+    let sum_sq: f32 = samples.iter().map(|&x| powf(x - mean, 2.0)).sum();
+    sum_sq / n
 }
 
-/// Statistical Kurtosis
+/// Crest Factor = Peak / RMS
+/// High value (>6) indicates impulsive events — early bearing fault
+pub fn crest_factor(samples: &[f32]) -> f32 {
+    let r = rms(samples);
+    if r < 1e-10 {
+        return 0.0;
+    }
+    let cf = peak(samples) / r;
+    if cf.is_nan() || cf.is_infinite() {
+        return 0.0;
+    }
+    cf
+}
+
+/// Statistical Kurtosis (4th standardized moment)
+/// Normal vibration ≈ 3.0. Bearing fault > 4.0-6.0.
 pub fn kurtosis(samples: &[f32]) -> f32 {
     let n = samples.len() as f32;
+    if n < 2.0 {
+        return 0.0;
+    }
     let mean: f32 = samples.iter().sum::<f32>() / n;
-    let variance: f32 = samples.iter().map(|&x| powf(x - mean, 2.0)).sum::<f32>() / n;
-    if variance < 1e-20 { return 0.0; }
+    let var = variance(samples);
+    // Guard: zero variance (frozen sensor, constant signal)
+    if var < 1e-20 {
+        return 0.0;
+    }
     let fourth: f32 = samples.iter().map(|&x| powf(x - mean, 4.0)).sum::<f32>() / n;
-    fourth / powf(variance, 2.0)
+    let k = fourth / powf(var, 2.0);
+    if k.is_nan() || k.is_infinite() {
+        return 0.0;
+    }
+    k
 }
 
 #[cfg(test)]
@@ -34,19 +66,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_rms() {
+    fn test_rms_constant() {
         let samples = [1.0f32; 128];
         assert!((rms(&samples) - 1.0).abs() < 1e-5);
     }
 
     #[test]
-    fn test_kurtosis() {
-        // A simple test for kurtosis. A uniform distribution has kurtosis ~ 1.8. 
-        // For standard normal it's ~3.0. Let's just do a basic sanity check.
-        // The spec says: "kurtosis on gaussian-distributed samples ≈ 3.0 ± 0.5"
-        // Let's create an approximation of gaussian.
+    fn test_rms_empty() {
+        assert_eq!(rms(&[]), 0.0);
+    }
+
+    #[test]
+    fn test_peak() {
+        let samples = [1.0, -5.0, 3.0, -2.0];
+        assert!((peak(&samples) - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_variance_constant() {
+        let samples = [5.0f32; 128];
+        assert!(variance(&samples) < 1e-10);
+    }
+
+    #[test]
+    fn test_variance_nonzero() {
+        let samples = [1.0f32, -1.0f32];
+        assert!((variance(&samples) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_crest_factor_zero() {
+        let samples = [0.0f32; 128];
+        assert_eq!(crest_factor(&samples), 0.0);
+    }
+
+    #[test]
+    fn test_crest_factor_normal() {
         let mut samples = [0.0f32; 128];
-        // Generate pseudo-gaussian using central limit theorem
+        for i in 0..128 {
+            samples[i] = (i as f32 * 0.1).sin();
+        }
+        let cf = crest_factor(&samples);
+        assert!(cf > 0.0);
+        assert!(!cf.is_nan());
+    }
+
+    #[test]
+    fn test_kurtosis_gaussian() {
+        let mut samples = [0.0f32; 128];
         let mut rng_state = 12345u64;
         for i in 0..128 {
             let mut sum = 0.0;
@@ -62,8 +129,17 @@ mod tests {
     }
 
     #[test]
-    fn test_crest_factor_zero() {
-        let samples = [0.0f32; 128];
-        assert_eq!(crest_factor(&samples), 0.0);
+    fn test_kurtosis_constant_signal() {
+        let samples = [3.0f32; 128];
+        assert_eq!(kurtosis(&samples), 0.0);
+    }
+
+    #[test]
+    fn test_kurtosis_impulsive() {
+        let mut samples = [0.0f32; 128];
+        samples[64] = 10.0; // single large impulse
+        let k = kurtosis(&samples);
+        // Impulsive signal should have high kurtosis
+        assert!(k > 4.0, "Expected k > 4.0 for impulsive signal, got {}", k);
     }
 }

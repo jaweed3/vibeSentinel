@@ -3,7 +3,10 @@ use burn::{
     nn::{Linear, LinearConfig, Relu, Sigmoid},
     tensor::{backend::Backend, Tensor},
 };
+use vibesentinel_features::{INPUT_DIM, HIDDEN1_DIM, LATENT_DIM, HIDDEN2_DIM, OUTPUT_DIM};
 
+/// Autoencoder topology: 20→10→4→10→20
+/// MUST MATCH vibesentinel-model/src/arch.rs dimensions exactly.
 #[derive(Module, Debug)]
 pub struct VibeSentinelAutoencoder<B: Backend> {
     pub enc1: Linear<B>,
@@ -17,11 +20,11 @@ pub struct VibeSentinelAutoencoder<B: Backend> {
 impl<B: Backend> VibeSentinelAutoencoder<B> {
     pub fn new(device: &B::Device) -> Self {
         Self {
-            enc1:    LinearConfig::new(20, 10).init(device),
-            enc2:    LinearConfig::new(10, 4).init(device),
-            dec1:    LinearConfig::new(4, 10).init(device),
-            dec2:    LinearConfig::new(10, 20).init(device),
-            relu:    Relu::new(),
+            enc1: LinearConfig::new(INPUT_DIM, HIDDEN1_DIM).init(device),
+            enc2: LinearConfig::new(HIDDEN1_DIM, LATENT_DIM).init(device),
+            dec1: LinearConfig::new(LATENT_DIM, HIDDEN2_DIM).init(device),
+            dec2: LinearConfig::new(HIDDEN2_DIM, OUTPUT_DIM).init(device),
+            relu: Relu::new(),
             sigmoid: Sigmoid::new(),
         }
     }

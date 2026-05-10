@@ -4,6 +4,7 @@ use burn::{
     tensor::{backend::AutodiffBackend, Tensor, TensorData},
 };
 use crate::model::VibeSentinelAutoencoder;
+use vibesentinel_features::FEATURE_DIM;
 use rand::seq::SliceRandom;
 
 pub struct TrainingConfig {
@@ -27,15 +28,15 @@ impl Default for TrainingConfig {
 }
 
 pub fn train_and_calibrate<B: AutodiffBackend>(
-    data: &[[f32; 20]],
+    data: &[[f32; FEATURE_DIM]],
     config: &TrainingConfig,
     device: &B::Device,
-) -> (VibeSentinelAutoencoder<B>, f32, [f32; 20], [f32; 20]) {
-    let mut feature_mean = [0.0f32; 20];
-    let mut feature_std = [0.0f32; 20];
+) -> (VibeSentinelAutoencoder<B>, f32, [f32; FEATURE_DIM], [f32; FEATURE_DIM]) {
+    let mut feature_mean = [0.0f32; FEATURE_DIM];
+    let mut feature_std = [0.0f32; FEATURE_DIM];
     let n = data.len() as f32;
 
-    for i in 0..20 {
+    for i in 0..FEATURE_DIM {
         let sum: f32 = data.iter().map(|w| w[i]).sum();
         feature_mean[i] = sum / n;
         let var_sum: f32 = data.iter().map(|w| (w[i] - feature_mean[i]).powi(2)).sum();
@@ -44,8 +45,8 @@ pub fn train_and_calibrate<B: AutodiffBackend>(
 
     let mut normalized_data = Vec::with_capacity(data.len());
     for w in data {
-        let mut norm = [0.0f32; 20];
-        for i in 0..20 {
+        let mut norm = [0.0f32; FEATURE_DIM];
+        for i in 0..FEATURE_DIM {
             let z = (w[i] - feature_mean[i]) / (feature_std[i] + 1e-8);
             norm[i] = z.clamp(-3.0, 3.0);
         }
@@ -72,7 +73,7 @@ pub fn train_and_calibrate<B: AutodiffBackend>(
         
         for chunk in current_train.chunks(config.batch_size) {
             let flat: Vec<f32> = chunk.iter().flat_map(|w| w.iter().copied()).collect();
-            let data = TensorData::new(flat, [chunk.len(), 20]);
+            let data = TensorData::new(flat, [chunk.len(), FEATURE_DIM]);
             let tensor = Tensor::<B, 2>::from_data(data, device);
             
             let loss = model.loss(tensor.clone()).mean();
@@ -88,7 +89,7 @@ pub fn train_and_calibrate<B: AutodiffBackend>(
 
         if epoch % 10 == 0 || epoch == config.epochs - 1 {
             let flat: Vec<f32> = val_set.iter().flat_map(|w| w.iter().copied()).collect();
-            let data = TensorData::new(flat, [val_set.len(), 20]);
+            let data = TensorData::new(flat, [val_set.len(), FEATURE_DIM]);
             let val_tensor = Tensor::<B::InnerBackend, 2>::from_data(data, device);
             let val_model = model.valid();
             let val_loss = val_model.loss(val_tensor).mean().into_data().to_vec::<f32>().unwrap()[0];
@@ -100,7 +101,7 @@ pub fn train_and_calibrate<B: AutodiffBackend>(
     let val_model = model.valid();
     
     let flat: Vec<f32> = val_set.iter().flat_map(|w| w.iter().copied()).collect();
-    let data = TensorData::new(flat, [val_set.len(), 20]);
+    let data = TensorData::new(flat, [val_set.len(), FEATURE_DIM]);
     let val_tensor = Tensor::<B::InnerBackend, 2>::from_data(data, device);
     let recons = val_model.forward(val_tensor.clone());
     let diff = val_tensor - recons;

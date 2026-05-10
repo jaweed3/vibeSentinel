@@ -1,4 +1,7 @@
 use std::io::Write;
+use vibesentinel_features::{
+    FEATURE_DIM, INPUT_DIM, HIDDEN1_DIM, LATENT_DIM, HIDDEN2_DIM, OUTPUT_DIM,
+};
 
 pub fn export_weights(
     w_enc1: &[f32],
@@ -10,8 +13,10 @@ pub fn export_weights(
     w_dec2: &[f32],
     b_dec2: &[f32],
     threshold:    f32,
-    feature_mean: &[f32; 20],
-    feature_std:  &[f32; 20],
+    feature_mean: &[f32; FEATURE_DIM],
+    feature_std:  &[f32; FEATURE_DIM],
+    golden_inputs:  &[Vec<f32>],
+    golden_outputs: &[Vec<f32>],
     output_path:  &str,
 ) -> anyhow::Result<()> {
     let mut file = std::fs::File::create(output_path)?;
@@ -25,15 +30,42 @@ pub fn export_weights(
     write_f32_array(&mut file, "FEATURE_MEAN", feature_mean)?;
     write_f32_array(&mut file, "FEATURE_STD",  feature_std)?;
 
-    write_weight_matrix(&mut file, "W_ENC1", w_enc1, 20, 10)?;
+    // Cross-architecture parity: golden feature vectors and expected reconstructions
+    writeln!(file, "/// Number of golden test vectors for cross-architecture parity test.")?;
+    writeln!(file, "pub const GOLDEN_FEATURE_COUNT: usize = {};", golden_inputs.len())?;
+    writeln!(file)?;
+    write_2d_f32_array(&mut file, "GOLDEN_INPUTS", golden_inputs, FEATURE_DIM)?;
+    write_2d_f32_array(&mut file, "GOLDEN_RECONSTRUCTIONS", golden_outputs, FEATURE_DIM)?;
+
+    write_weight_matrix(&mut file, "W_ENC1", w_enc1, INPUT_DIM, HIDDEN1_DIM)?;
     write_bias_array(&mut file,    "B_ENC1", b_enc1)?;
-    write_weight_matrix(&mut file, "W_ENC2", w_enc2, 10, 4)?;
+    write_weight_matrix(&mut file, "W_ENC2", w_enc2, HIDDEN1_DIM, LATENT_DIM)?;
     write_bias_array(&mut file,    "B_ENC2", b_enc2)?;
-    write_weight_matrix(&mut file, "W_DEC1", w_dec1, 4, 10)?;
+    write_weight_matrix(&mut file, "W_DEC1", w_dec1, LATENT_DIM, HIDDEN2_DIM)?;
     write_bias_array(&mut file,    "B_DEC1", b_dec1)?;
-    write_weight_matrix(&mut file, "W_DEC2", w_dec2, 10, 20)?;
+    write_weight_matrix(&mut file, "W_DEC2", w_dec2, HIDDEN2_DIM, OUTPUT_DIM)?;
     write_bias_array(&mut file,    "B_DEC2", b_dec2)?;
 
+    Ok(())
+}
+
+fn write_2d_f32_array(
+    f: &mut impl Write,
+    name: &str,
+    data: &[Vec<f32>],
+    dim: usize,
+) -> anyhow::Result<()> {
+    writeln!(f, "pub const {}: [[f32; {}]; {}] = [", name, dim, data.len())?;
+    for row in data {
+        write!(f, "    [")?;
+        for (j, val) in row.iter().enumerate() {
+            if j > 0 { write!(f, ", ")?; }
+            write!(f, "{:.10}f32", val)?;
+        }
+        writeln!(f, "],")?;
+    }
+    writeln!(f, "];")?;
+    writeln!(f)?;
     Ok(())
 }
 
@@ -69,8 +101,8 @@ fn write_bias_array(f: &mut impl Write, name: &str, data: &[f32]) -> anyhow::Res
     Ok(())
 }
 
-fn write_f32_array(f: &mut impl Write, name: &str, data: &[f32; 20]) -> anyhow::Result<()> {
-    write!(f, "pub const {}: [f32; 20] = [", name)?;
+fn write_f32_array(f: &mut impl Write, name: &str, data: &[f32; FEATURE_DIM]) -> anyhow::Result<()> {
+    write!(f, "pub const {}: [f32; {}] = [", name, FEATURE_DIM)?;
     for (i, &val) in data.iter().enumerate() {
         if i > 0 { write!(f, ", ")?; }
         write!(f, "{:.10}f32", val)?;

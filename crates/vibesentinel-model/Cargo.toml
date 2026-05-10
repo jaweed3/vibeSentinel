@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+vibesentinel-features = { path = "../vibesentinel-features" }
 libm = "0.2"
 
 [features]
