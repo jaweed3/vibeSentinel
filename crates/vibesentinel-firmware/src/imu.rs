@@ -1,25 +1,21 @@
 use esp_idf_hal::i2c::I2cDriver;
+use crate::config;
 
-const LSM6DS3_ADDR: u8 = 0x6A;
+const LSM6DS3_ADDR: u8 = config::IMU_I2C_ADDR;
 const OUTX_L_A:     u8 = 0x28;
 const CTRL1_XL:     u8 = 0x10;
 
 /// Accelerometer full-scale range.
-/// Industrial motors may exceed ±2G in normal operation.
-/// Default to ±8G to avoid clipping/saturation.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum AccelRange {
-    #[allow(dead_code)]
-    G2  = 0x00,   // ±2g,  scale 0.000061 g/LSB — pedometer use only
-    #[allow(dead_code)]
+    G2  = 0x00,   // ±2g,  scale 0.000061 g/LSB — pedometer only, NOT for industrial
     G4  = 0x02,   // ±4g,  scale 0.000122 g/LSB
-    G8  = 0x03,   // ±8g,  scale 0.000244 g/LSB
-    #[allow(dead_code)]
-    G16 = 0x04,   // ±16g, scale 0.000488 g/LSB
+    G8  = 0x03,   // ±8g,  scale 0.000244 g/LSB — default for motor monitoring
+    G16 = 0x04,   // ±16g, scale 0.000488 g/LSB — heavy machinery
 }
 
 impl AccelRange {
-    pub const fn scale(self) -> f32 {
+    pub const fn scale_g_per_lsb(self) -> f32 {
         match self {
             AccelRange::G2  => 0.000061,
             AccelRange::G4  => 0.000122,
@@ -28,49 +24,79 @@ impl AccelRange {
         }
     }
 
-    /// Raw i16 value where the sensor saturates for this range.
-    const fn saturation_raw(self) -> i16 {
+    pub const fn name(self) -> &'static str {
         match self {
-            AccelRange::G2  => i16::MAX,
-            AccelRange::G4  => i16::MAX,
-            AccelRange::G8  => i16::MAX,
-            AccelRange::G16 => i16::MAX,
+            AccelRange::G2  => "2G",
+            AccelRange::G4  => "4G",
+            AccelRange::G8  => "8G",
+            AccelRange::G16 => "16G",
         }
+    }
+
+    pub const fn max_raw(self) -> i16 {
+        i16::MAX // All ranges saturate at ±32767 in raw units
     }
 }
 
-const ODR_416HZ: u8 = 0x60; // 416 Hz ODR, range bits OR'd in
+fn range_ctrl_bits(range: AccelRange) -> u8 {
+    let odr_bits: u8 = 0x60; // 416Hz ODR
+    let fs_bits = (range as u8) << 2; // FS[1:0] at bits 3:2
+    odr_bits | fs_bits
+}
 
-/// Max consecutive I2C errors before attempted bus recovery.
-const MAX_I2C_ERRORS: u32 = 5;
+/// Number of LSb considered "near saturation" for warning threshold.
+const SATURATION_MARGIN: i16 = 50;
 
 pub struct ImuDriver<'d> {
     i2c: I2cDriver<'d>,
     range: AccelRange,
     error_count: u32,
+    addr: u8,
 }
 
 impl<'d> ImuDriver<'d> {
+    /// Initialize IMU with the given I2C driver and range.
+    /// Returns Ok if the device responds at the configured address.
     pub fn new(mut i2c: I2cDriver<'d>, range: AccelRange) -> anyhow::Result<Self> {
-        let ctrl = ODR_416HZ | (range as u8) << 2;
-        i2c.write(LSM6DS3_ADDR, &[CTRL1_XL, ctrl], 100)?;
-        Ok(Self { i2c, range, error_count: 0 })
+        let addr = LSM6DS3_ADDR;
+        let ctrl = range_ctrl_bits(range);
+
+        // Attempt to configure the IMU
+        i2c.write(addr, &[CTRL1_XL, ctrl], 100)
+            .map_err(|e| anyhow::anyhow!(
+                "[E002] IMU_INIT_FAIL at 0x{:02X}: {}. Check: (1) 3.3V power (2) SDA/SCL wiring (3) pull-up resistors (4) correct I2C address",
+                addr, e
+            ))?;
+
+        log::info!(
+            "[INIT] IMU: addr=0x{:02X} range={} ODR={}Hz | OK",
+            addr, range.name(), config::IMU_ODR_HZ
+        );
+
+        Ok(Self { i2c, range, error_count: 0, addr })
     }
 
-    /// Read one triaxial accelerometer sample.
-    /// Returns (x, y, z) in m/s² (converts from g to m/s²: × 9.80665).
+    /// Read triaxial accelerometer in m/s² (g × 9.80665).
     pub fn read_accel(&mut self) -> anyhow::Result<(f32, f32, f32)> {
         let mut buf = [0u8; 6];
-        self.i2c.write_read(LSM6DS3_ADDR, &[OUTX_L_A], &mut buf, 100)?;
+        self.i2c.write_read(self.addr, &[OUTX_L_A], &mut buf, 100)
+            .map_err(|e| {
+                self.error_count += 1;
+                anyhow::anyhow!(
+                    "[E001] I2C_TIMEOUT (consecutive #{}, addr=0x{:02X}): {}",
+                    self.error_count, self.addr, e
+                )
+            })?;
 
         let raw_x = i16::from_le_bytes([buf[0], buf[1]]);
         let raw_y = i16::from_le_bytes([buf[2], buf[3]]);
         let raw_z = i16::from_le_bytes([buf[4], buf[5]]);
 
-        self.error_count = 0; // successful read resets error counter
+        self.error_count = 0; // success resets counter
 
         const G_TO_MS2: f32 = 9.80665;
-        let scale = self.range.scale() * G_TO_MS2;
+        let scale = self.range.scale_g_per_lsb() * G_TO_MS2;
+
         Ok((
             raw_x as f32 * scale,
             raw_y as f32 * scale,
@@ -78,46 +104,36 @@ impl<'d> ImuDriver<'d> {
         ))
     }
 
-    /// Returns true if any axis is at the saturation limit.
-    /// Indicates the signal is being clipped — the vibration amplitude
-    /// exceeds the current range. Consider upgrading to a higher range.
-    pub fn is_saturated(&self, raw_x: i16, raw_y: i16, raw_z: i16) -> bool {
-        let sat = self.range.saturation_raw();
-        raw_x.abs() >= sat - 10 || raw_y.abs() >= sat - 10 || raw_z.abs() >= sat - 10
+    /// Check if any axis is near the saturation limit.
+    /// Returns a warning string if saturated, None otherwise.
+    pub fn check_saturation(&self, x: f32, y: f32, z: f32) -> Option<&'static str> {
+        let max_g = self.range.max_raw() as f32 * self.range.scale_g_per_lsb();
+        let threshold = max_g * 0.95; // warn at 95% of range
+        if x.abs() > threshold || y.abs() > threshold || z.abs() > threshold {
+            Some("[E010] SATURATION: signal approaching range limit. Increase G-range")
+        } else {
+            None
+        }
     }
 
-    /// Read raw accelerometer values (for saturation check).
-    pub fn read_accel_raw(&mut self) -> anyhow::Result<(i16, i16, i16)> {
-        let mut buf = [0u8; 6];
-        self.i2c.write_read(LSM6DS3_ADDR, &[OUTX_L_A], &mut buf, 100)?;
-
-        let raw_x = i16::from_le_bytes([buf[0], buf[1]]);
-        let raw_y = i16::from_le_bytes([buf[2], buf[3]]);
-        let raw_z = i16::from_le_bytes([buf[4], buf[5]]);
-
-        self.error_count = 0;
-        Ok((raw_x, raw_y, raw_z))
-    }
-
-    /// Call on I2C read failure. Tracks consecutive errors and attempts
-    /// bus recovery after MAX_I2C_ERRORS consecutive failures.
-    pub fn report_error(&mut self) -> u32 {
-        self.error_count += 1;
-        self.error_count
-    }
-
-    /// Attempt I2C peripheral reset after persistent errors.
-    /// Returns Ok if reinit succeeds.
+    /// Attempt I2C bus recovery after persistent errors.
+    /// Re-sends the IMU configuration to re-establish communication.
     pub fn recover(&mut self) -> anyhow::Result<()> {
-        log::warn!("Attempting I2C bus recovery ({} consecutive errors)", self.error_count);
-        // Re-send IMU config in case registers were corrupted
-        let range_bits = (self.range as u8) << 2;
-        self.i2c.write(LSM6DS3_ADDR, &[CTRL1_XL, ODR_416HZ | range_bits], 100)?;
+        log::warn!(
+            "[I2C] Attempting recovery after {} consecutive errors...",
+            self.error_count
+        );
+        let ctrl = range_ctrl_bits(self.range);
+        self.i2c.write(self.addr, &[CTRL1_XL, ctrl], 100)
+            .map_err(|e| anyhow::anyhow!(
+                "[E009] I2C_RECOVERY_FAIL ({} errors, addr=0x{:02X}): {}. Power-cycle sensor?",
+                self.error_count, self.addr, e
+            ))?;
         self.error_count = 0;
+        log::warn!("[I2C] Recovery OK — bus nominal");
         Ok(())
     }
 
-    pub fn error_count(&self) -> u32 {
-        self.error_count
-    }
+    pub fn error_count(&self) -> u32 { self.error_count }
+    pub fn range(&self) -> AccelRange { self.range }
 }

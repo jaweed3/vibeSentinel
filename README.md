@@ -43,10 +43,18 @@ The project is structured as a Cargo Workspace:
 
 ### 1. Requirements
 *   **Rust**: Nightly toolchain.
-*   **Hardware**: ESP32-S3 + LSM6DS3 (I2C) or similar IMU.
+*   **Hardware**: ESP32-S3 board (tested on **Seeed Studio XIAO ESP32S3 Sense**).
+*   **IMU**: External LSM6DS3 (I2C address 0x6A) or MPU-6050 (0x68) — the XIAO does NOT have an onboard IMU.
 *   **Python**: 3.11 (for ESP-IDF build system).
 
-### 2. Quick Setup (Desktop)
+### 2. Supported Boards
+
+| Board | I2C SDA | I2C SCL | LED | Notes |
+|---|---|---|---|---|
+| **XIAO ESP32S3 Sense** | GPIO6 | GPIO7 | GPIO21 | No onboard IMU — connect external sensor via I2C |
+| ESP32-S3 DevKitC | GPIO8 | GPIO9 | GPIO2 | Edit `config.rs` to switch board |
+
+### 3. Quick Setup (Desktop)
 Use our bootstrap script to fix Python issues and setup the ESP-IDF environment:
 ```bash
 chmod +x scripts/*.sh
@@ -83,6 +91,23 @@ espflash flash target/xtensa-esp32s3-espidf/release/vibesentinel-firmware
     *   Forward pass through the Autoencoder.
     *   Compare Input vs. Output (MSE).
 5.  **Alert**: If `MSE > ANOMALY_THRESHOLD`, trigger GPIO Alert.
+
+## 🐛 Debugging & Error Codes
+
+All firmware errors use structured codes. Grep serial output for `[E###]`:
+
+| Code | Name | Meaning | Fix |
+|---|---|---|---|
+| **E001** | I2C_TIMEOUT | I2C bus not responding | Check SDA/SCL wiring, pull-up resistors |
+| **E002** | IMU_INIT_FAIL | IMU not detected | Check 3.3V power, verify I2C address (0x6A) |
+| **E003** | SENSOR_FROZEN | Signal variance near zero | Tap sensor, check physical connection |
+| **E005** | HEAP_LOW | Free heap < 50KB | Check for memory leaks |
+| **E007** | FEATURE_NAN | NaN in feature vector | Input signal anomaly, check sensor data |
+| **E008** | INFERENCE_NAN | NaN in model output | Corrupted weights.rs or extreme input |
+| **E009** | I2C_RECOVERY_FAIL | I2C bus recovery failed | Power-cycle sensor, check EMI shielding |
+| **E010** | SATURATION | Signal at range limit | Increase G-range (8G → 16G) |
+
+Health reports print every 60s: `[HEALTH] uptime=... windows=... heap=... errors=...`
 
 ---
 
