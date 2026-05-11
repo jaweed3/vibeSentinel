@@ -146,6 +146,11 @@ mod tests {
     }
 
     #[test]
+    fn test_skewness_constant() {
+        let samples = [3.0, 3.0, 3.0, 3.0];
+        assert_eq!(skewness(&samples), 0.0);
+    }
+    #[test]
     fn test_kurtosis_gaussian() {
         let mut samples = [0.0f32; 128];
         let mut rng_state = 12345u64;
