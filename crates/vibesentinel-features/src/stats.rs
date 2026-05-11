@@ -170,6 +170,11 @@ mod tests {
     }
 
     #[test]
+    fn test_skewness_outlier() {
+        let samples = [1.0, 1.0, 1.0, 1.0, 1110.0];
+        assert!(skewness(&samples) > 1.0);
+    }
+    #[test]
     fn test_kurtosis_gaussian() {
         let mut samples = [0.0f32; 128];
         let mut rng_state = 12345u64;
