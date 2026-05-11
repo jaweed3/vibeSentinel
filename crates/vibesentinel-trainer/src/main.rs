@@ -21,8 +21,11 @@ type MyAutodiffBackend = Autodiff<MyBackend>;
 #[command(version, about, long_about = None)]
 #[command(next_line_help = true)]
 struct Cli {
-    data: String,
-    output_path: String,
+    #[arg(long, short)]
+    data: Option<String>,
+    #[arg(long, short)]
+    output_path: Option<String>,
+    #[arg(long, short)]
     epochs: usize,
     learning_rate: f64,
     sigma: String,
