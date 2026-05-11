@@ -18,6 +18,8 @@ type MyBackend = NdArray<f32>;
 type MyAutodiffBackend = Autodiff<MyBackend>;
 
 #[derive(Parser)]
+#[command(version, about, long_about = None)]
+#[command(next_line_help = true)]
 struct Cli {
     data: String,
     output_path: String,
