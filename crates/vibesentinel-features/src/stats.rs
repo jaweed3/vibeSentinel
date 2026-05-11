@@ -27,7 +27,7 @@ pub fn skewness(samples: &[f32]) -> f32 {
         return 0.0;
     }
 
-    let stddev: f32 = var.sqrt();
+    let stddev = libm::sqrtf(var);
     if stddev == 0.0 {
         return 0.0;
     }
