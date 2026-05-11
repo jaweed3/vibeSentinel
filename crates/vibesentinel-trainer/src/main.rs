@@ -37,22 +37,21 @@ struct Cli {
 
 
 fn main() -> anyhow::Result<()> {
-    let args = parse_args();
+    let arg = Cli::parse();
+    
+    if arg.help {
+        return Ok(());
+    }
 
-    let data_path = args.get("--data").map(|s| s.as_str());
-    let output_path = args.get("--output")
-        .map(|s| s.as_str())
-        .unwrap_or("crates/vibesentinel-model/src/weights.rs");
-    let epochs: usize = args.get("--epochs").and_then(|s| s.parse().ok()).unwrap_or(200);
-    let lr: f64 = args.get("--lr").and_then(|s| s.parse().ok()).unwrap_or(1e-3);
-    let sigma: f32 = args.get("--sigma").and_then(|s| s.parse().ok()).unwrap_or(3.0);
-
-    let data = if let Some(path) = data_path {
-        println!("Loading data from {}...", path);
-        dataset::CsvVibrationDataset::from_csv(path)?.windows
-    } else {
-        println!("No --data specified. Generating synthetic normal data...");
-        dataset::generate_synthetic_normal(1000)
+    let data = match &arg.data {
+        Some(path) => {
+            println!("Loading data from {}...", path);
+            dataset::CsvVibrationDataset::from_csv(path)?.windows
+        } 
+        None => {
+            println!("No --data specified. Generating synthetic normal data...");
+            dataset::generate_synthetic_normal(1000)
+        }
     };
 
     let config = TrainingConfig {
