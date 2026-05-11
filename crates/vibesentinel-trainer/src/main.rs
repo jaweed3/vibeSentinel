@@ -14,9 +14,20 @@ use vibesentinel_features::{
 };
 use crate::train::{train_and_calibrate, TrainingConfig};
 use crate::export::export_weights;
+use clap::Parser;
 
 type MyBackend = NdArray<f32>;
 type MyAutodiffBackend = Autodiff<MyBackend>;
+
+#[derive(Parser)]
+struct Cli {
+    data: String,
+    output_path: String,
+    epochs: usize,
+    learning_rate: f64,
+    sigma: String,
+    help: String
+}
 
 fn parse_args() -> HashMap<String, String> {
     let mut args = HashMap::new();
