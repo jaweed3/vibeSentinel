@@ -63,7 +63,7 @@ fn main() -> anyhow::Result<()> {
 
     let device = Default::default();
 
-    println!("Starting training ({} epochs, lr={}, sigma={})...", epochs, lr, sigma);
+    println!("Starting training ({} epochs, lr={}, sigma={})...", arg.epochs, arg.learning_rate, arg.sigma);
     let (model, threshold, mean, std) = train_and_calibrate::<MyAutodiffBackend>(&data, &config, &device);
 
     // Generate golden features for cross-architecture parity test (#9)
@@ -108,6 +108,7 @@ fn main() -> anyhow::Result<()> {
     let w_dec1_t = transpose(&w_dec1, LATENT_DIM, HIDDEN2_DIM);
     let w_dec2_t = transpose(&w_dec2, HIDDEN2_DIM, OUTPUT_DIM);
 
+    let output_path = arg.output_path.as_deref().expect("output_path is required");
     println!("Exporting to {}...", output_path);
     export_weights(
         &w_enc1_t, &b_enc1,
