@@ -140,6 +140,12 @@ mod tests {
     }
 
     #[test]
+    fn test_skewness_zero() {
+        let mut samples = [1.0];
+        assert!(skewness(&samples), 0.0);
+    }
+
+    #[test]
     fn test_kurtosis_gaussian() {
         let mut samples = [0.0f32; 128];
         let mut rng_state = 12345u64;
