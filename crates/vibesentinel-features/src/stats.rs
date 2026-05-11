@@ -15,6 +15,34 @@ pub fn peak(samples: &[f32]) -> f32 {
     samples.iter().map(|&x| fabsf(x)).fold(0.0f32, f32::max)
 }
 
+pub fn skewness(samples: &[f32]) -> f32 {
+    let n = samples.len() as f32;
+    if n < 2.0 {
+        return 0.0;
+    }
+    let mean: f32 = samples.iter().sum::<f32>() / n;
+    let var = variance(samples);
+    
+    if var < 1e-20 {
+        return 0.0;
+    }
+
+    let stddev: f32 = var.sqrt();
+    if stddev == 0.0 {
+        return 0.0;
+    }
+
+    let third_moment: f32 = samples
+        .iter()
+        .map(|x| {
+            let d = x - mean;
+            d * d * d
+        })
+        .sum::<f32>() / n;
+
+    third_moment / (stddev * stddev * stddev)
+}
+
 /// Variance (population): E[(x - mu)^2]
 pub fn variance(samples: &[f32]) -> f32 {
     let n = samples.len() as f32;
