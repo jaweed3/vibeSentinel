@@ -174,6 +174,15 @@ mod tests {
         let samples = [1.0, 1.0, 1.0, 1.0, 1110.0];
         assert!(skewness(&samples) > 1.0);
     }
+
+    #[test]
+    fn test_skewness_nan_infinity() {
+        let samples_nan = [f32::NAN, 1.0];
+        let samples_infinite = [f32::INFINITY, 1.0];
+        assert_eq!(skewness(&samples_nan), 0.0);
+        assert_eq!(skewness(&samples_infinite), 0.0);
+    }
+
     #[test]
     fn test_kurtosis_gaussian() {
         let mut samples = [0.0f32; 128];
