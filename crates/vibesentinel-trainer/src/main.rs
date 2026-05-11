@@ -35,17 +35,6 @@ struct Cli {
     help: bool
 }
 
-fn parse_args() -> HashMap<String, String> {
-    let mut args = HashMap::new();
-    let mut args_iter = std::env::args().skip(1);
-    while let Some(key) = args_iter.next() {
-        if key.starts_with("--") {
-            let value = args_iter.next().unwrap_or_default();
-            args.insert(key, value);
-        }
-    }
-    args
-}
 
 fn main() -> anyhow::Result<()> {
     let args = parse_args();
