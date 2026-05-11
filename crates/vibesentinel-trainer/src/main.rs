@@ -55,9 +55,9 @@ fn main() -> anyhow::Result<()> {
     };
 
     let config = TrainingConfig {
-        epochs,
-        learning_rate: lr,
-        threshold_sigma: sigma,
+        epochs: arg.epochs,
+        learning_rate: arg.learning_rate,
+        threshold_sigma: arg.sigma,
         ..Default::default()
     };
 
