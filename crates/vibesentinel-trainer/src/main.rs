@@ -3,8 +3,6 @@ pub mod model;
 pub mod train;
 pub mod export;
 
-use std::collections::HashMap;
-
 use burn::backend::Autodiff;
 use burn::module::AutodiffModule;
 use burn::tensor::{Tensor, TensorData};
