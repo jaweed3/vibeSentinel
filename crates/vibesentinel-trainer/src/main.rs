@@ -27,9 +27,12 @@ struct Cli {
     output_path: Option<String>,
     #[arg(long, short)]
     epochs: usize,
+    #[arg(long, short)]
     learning_rate: f64,
-    sigma: String,
-    help: String
+    #[arg(long, short)]
+    sigma: f32,
+    #[arg(long, short)]
+    help: bool
 }
 
 fn parse_args() -> HashMap<String, String> {
