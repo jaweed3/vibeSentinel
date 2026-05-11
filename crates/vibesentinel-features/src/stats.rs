@@ -40,6 +40,10 @@ pub fn skewness(samples: &[f32]) -> f32 {
         })
         .sum::<f32>() / n;
 
+    if third_moment.is_nan() || third_moment.is_infinite() {
+        return 0.0;
+    }
+
     third_moment / (stddev * stddev * stddev)
 }
 
