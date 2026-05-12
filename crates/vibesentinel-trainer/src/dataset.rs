@@ -112,3 +112,12 @@ timestamp,z,y,x
     assert_eq!(rows[0].y, 2.0);
     assert_eq!(rows[0].z, 3.0);
 }
+
+#[test]
+fn test_amplitude_scaling_changes_value() {
+    let mut windows = [[1.0; FEATURE_DIM]; 2];
+
+    amplitude_scale(&mut windows, 0.2, 42);
+    assert_ne!(windows[0][0], 1.0);
+}
+
