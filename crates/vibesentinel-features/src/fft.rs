@@ -116,4 +116,12 @@ mod tests {
 
         assert!((c - 250.0).abs() < 1e-3, "c = {}, expected ~250.0", c);
     }
+
+    #[test]
+    fn higher_frequency_has_higher_centroid() {
+        let low = [10.0, 1.0, 0.0, 0.0];
+        let high = [0.0, 0.0, 1.0, 10.0];
+
+        assert!(spectral_centroid(&low, 16000.0) < spectral_centroid(&high, 16000.0))
+    }
 }
