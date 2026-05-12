@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
             println!("Loading data from {}...", path);
             dataset::CsvVibrationDataset::from_csv(path)?.windows
         } 
-        None => {
+        _no_data_specified => {
             println!("No --data specified. Generating synthetic normal data...");
             dataset::generate_synthetic_normal(1000)
         }
