@@ -1,3 +1,4 @@
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use vibesentinel_features::{extractor::*, fft::WINDOW_SIZE};
 use serde::Deserialize;
 
@@ -40,6 +41,23 @@ impl CsvVibrationDataset {
             .collect();
 
         Ok(Self { windows })
+    }
+}
+
+pub fn amplitude_scale(
+    windows: &mut [[f32; FEATURE_DIM]],
+    scale: f32,
+    seed: u64
+) {
+    let mut rng = StdRng::seed_from_u64(seed);
+
+    for window in windows.iter_mut() {
+        let factor = 
+            rng.gen_range(1.0 - scale..=1.0 + scale);
+
+        for value in window.iter_mut() {
+            *value *= factor;
+        }
     }
 }
 
