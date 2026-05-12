@@ -124,4 +124,13 @@ mod tests {
 
         assert!(spectral_centroid(&low, 16000.0) < spectral_centroid(&high, 16000.0))
     }
+
+    #[test]
+    fn uniform_spectrum_centered() {
+        let mags = [1.0; 4];
+
+        let c = spectral_centroid(&mags, 16000.0);
+        assert!(c > 100.0, "c = {}, expected > 100.0", c);
+        assert!(c < 200.0, "c = {}, expected < 200.0", c);
+    }
 }
