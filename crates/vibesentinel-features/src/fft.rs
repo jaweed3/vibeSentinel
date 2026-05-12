@@ -142,4 +142,10 @@ mod tests {
         assert!(c >= 0.0);
     }
 
+    #[test]
+    fn test_centroid_extreme_large_values() {
+        let mags = [1e20, 1e20, 1e20, 1e20];
+        let c = spectral_centroid(&mags, 16000.0);
+        assert!((c - 187.5).abs() < 1e-3, "Should handle extreme large value, got {}", c);
+    }
 }
