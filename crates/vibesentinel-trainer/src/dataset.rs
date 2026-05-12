@@ -121,3 +121,13 @@ fn test_amplitude_scaling_changes_value() {
     assert_ne!(windows[0][0], 1.0);
 }
 
+#[test]
+fn test_amplitude_scaling_is_deterministic() {
+    let mut a = [[1.0; FEATURE_DIM]; 2];
+    let mut b = [[1.0; FEATURE_DIM]; 2];
+
+    amplitude_scale(&mut a, 0.2, 42);
+    amplitude_scale(&mut b, 0.2, 42);
+    
+    assert_eq!(a, b);
+}
