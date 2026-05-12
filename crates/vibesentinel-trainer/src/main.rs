@@ -39,9 +39,15 @@ struct Cli {
     aug_scale: f32,
     #[arg(long)]
     export_json: bool
-    aug_scale: f32
 }
 
+#[derive(serde::Serialize)]
+pub struct ExportedWeights {
+    pub w_enc1: Vec<f32>,
+    pub b_enc1: Vec<f32>,
+    pub w_enc2: Vec<f32>,
+    pub b_enc2: Vec<f32>,
+}
 
 fn main() -> anyhow::Result<()> {
     let arg = Cli::parse();
