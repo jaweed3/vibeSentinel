@@ -13,6 +13,30 @@ pub fn apply_hann(buf: &mut [f32; WINDOW_SIZE]) {
     }
 }
 
+pub fn spectral_centroid(
+    mags: &[f32; FFT_BINS],
+    sample_rate: f32
+) -> f32 {
+    let mut weighted_sum: f32 = 0.0f32;
+    let mut magnitude_sum: f32 = 0.0f32;
+    
+    for i in 0..FFT_BINS {
+        let freq = 
+            i as f32 * sample_rate / WINDOW_SIZE as f32;
+
+        let mag = mags[i];
+
+        weighted_sum += freq * mag;
+        magnitude_sum += mag;
+    }
+
+    if magnitude_sum <= 1e-12 {
+        return 0.0;
+    }
+
+    weighted_sum / magnitude_sum
+}
+
 /// Compute magnitude of first N FFT bins from 128 raw samples.
 /// Applies Hann window, then FFT. Input buffer is destroyed.
 pub fn fft_magnitudes(buf: &mut [f32; WINDOW_SIZE]) -> [f32; FFT_BINS] {
