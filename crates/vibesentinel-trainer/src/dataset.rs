@@ -75,3 +75,22 @@ pub fn generate_synthetic_normal(n_windows: usize) -> Vec<[f32; FEATURE_DIM]> {
         extract_features(&win)
     }).collect()
 }
+
+#[test]
+fn csv_with_reordered_columns_should_parse() {
+    let data = "\
+timestamp,z,y,x
+0.0,3.0,2.0,1.0
+";
+
+    let mut reader = csv::Reader::from_reader(data.as_bytes());
+
+    let rows: Vec<CsvRow> = reader
+        .deserialize()
+        .map(|x| x.unwrap())
+        .collect();
+
+    assert_eq!(rows[0].x, 1.0);
+    assert_eq!(rows[0].y, 2.0);
+    assert_eq!(rows[0].z, 3.0);
+}
