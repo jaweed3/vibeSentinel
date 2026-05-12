@@ -1,8 +1,18 @@
 use vibesentinel_features::{extractor::*, fft::WINDOW_SIZE};
+use serde::Deserialize;
 
 pub struct CsvVibrationDataset {
     pub windows: Vec<[f32; FEATURE_DIM]>,
 }
+
+#[derive(Deserialize)]
+pub struct CsvRow {
+    pub timestamp: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
+}
+
 
 impl CsvVibrationDataset {
     pub fn from_csv(path: &str) -> anyhow::Result<Self> {
