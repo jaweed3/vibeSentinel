@@ -102,4 +102,10 @@ mod tests {
         // And positive in the middle
         assert!(buf[WINDOW_SIZE / 2] > 0.9);
     }
+
+    #[test]
+    fn test_input_zero_mags() {
+        let mags = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
+        assert_eq!(spectral_centroid(&mags, 16000.0), 0.0);
+    }
 }
