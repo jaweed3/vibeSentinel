@@ -3,6 +3,9 @@ pub mod model;
 pub mod train;
 pub mod export;
 
+use std::fs::File;
+use std::io::BufWriter;
+use anyhow::Ok;
 use burn::backend::Autodiff;
 use burn::module::AutodiffModule;
 use burn::tensor::{Tensor, TensorData};
@@ -13,6 +16,7 @@ use vibesentinel_features::{
 use crate::train::{train_and_calibrate, TrainingConfig};
 use crate::export::export_weights;
 use clap::Parser;
+use serde_json::to_writer_pretty;
 
 type MyBackend = NdArray<f32>;
 type MyAutodiffBackend = Autodiff<MyBackend>;
