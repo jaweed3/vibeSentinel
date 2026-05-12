@@ -5098,6 +5098,7 @@ dependencies = [
  "log",
  "rand 0.8.6",
  "serde",
+ "serde_json",
  "vibesentinel-features",
  "vibesentinel-model",
 ]
