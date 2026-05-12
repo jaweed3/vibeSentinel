@@ -49,6 +49,17 @@ pub struct ExportedWeights {
     pub b_enc2: Vec<f32>,
 }
 
+pub fn export_to_json(
+    weights: &ExportedWeights,
+    output_path: &str
+) -> anyhow::Result<()>{
+    let file = File::create(output_path)?;
+    let writer = BufWriter::new(file);
+
+    to_writer_pretty(writer, weights)?;
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let arg = Cli::parse();
     let data = match &arg.data {
