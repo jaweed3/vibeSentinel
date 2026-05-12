@@ -133,4 +133,13 @@ mod tests {
         assert!(c > 100.0, "c = {}, expected > 100.0", c);
         assert!(c < 200.0, "c = {}, expected < 200.0", c);
     }
+
+    #[test]
+    fn test_centroid_negative_magnitudes() {
+        let mags = [0.0, -1.0, -2.0, -3.0];
+        let c = spectral_centroid(&mags, 16000.0);
+        assert!(!c.is_nan());
+        assert!(c >= 0.0);
+    }
+
 }
