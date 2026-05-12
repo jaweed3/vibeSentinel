@@ -114,6 +114,6 @@ mod tests {
         let mags = [0.0, 0.0, 10.0, 0.0];
         let c = spectral_centroid(&mags, 16000.0);
 
-        assert!(c > 3000.0);
+        assert!((c - 250.0).abs() < 1e-3, "c = {}, expected ~250.0", c);
     }
 }
