@@ -6,6 +6,7 @@ use burn::{
 use crate::model::VibeSentinelAutoencoder;
 use vibesentinel_features::FEATURE_DIM;
 use rand::seq::SliceRandom;
+use crate::dataset;
 
 pub struct TrainingConfig {
     pub epochs:           usize,
@@ -13,6 +14,7 @@ pub struct TrainingConfig {
     pub learning_rate:    f64,
     pub validation_split: f32,
     pub threshold_sigma:  f32,
+    pub aug_scale:        f32,
 }
 
 impl Default for TrainingConfig {
@@ -23,6 +25,7 @@ impl Default for TrainingConfig {
             learning_rate: 1e-3,
             validation_split: 0.15,
             threshold_sigma: 3.0,
+            aug_scale: 0.0
         }
     }
 }
@@ -57,7 +60,11 @@ pub fn train_and_calibrate<B: AutodiffBackend>(
     normalized_data.shuffle(&mut rng);
 
     let split_idx = (normalized_data.len() as f32 * (1.0 - config.validation_split)) as usize;
-    let train_set = &normalized_data[..split_idx];
+    let mut train_set = normalized_data[..split_idx].to_vec();
+    if config.aug_scale > 0.0 {
+        dataset::amplitude_scale(&mut train_set, config.aug_scale, 42);
+        println!("  Amplitude scaling ±{:.0}% applied to training set", config.aug_scale * 100.0);
+    }
     let val_set = &normalized_data[split_idx..];
 
     let mut model = VibeSentinelAutoencoder::<B>::new(device);
