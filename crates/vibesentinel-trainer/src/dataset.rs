@@ -21,9 +21,9 @@ impl CsvVibrationDataset {
         let mut ys = Vec::new();
         let mut zs = Vec::new();
 
-        for result in reader.deserialize::<(f64, f32, f32, f32)>() {
-            let (_, x, y, z) = result?;
-            xs.push(x); ys.push(y); zs.push(z);
+        for result in reader.deserialize::<CsvRow>() {
+            let row = result?;
+            xs.push(row.x); ys.push(row.y); zs.push(row.z);
         }
 
         let step = WINDOW_SIZE / 2;
