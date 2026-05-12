@@ -32,19 +32,12 @@ struct Cli {
     #[arg(long, short)]
     sigma: f32,
     #[arg(long, short)]
-    help: bool,
-    #[arg(long, short)]
     aug_scale: f32
 }
 
 
 fn main() -> anyhow::Result<()> {
     let arg = Cli::parse();
-    
-    if arg.help {
-        return Ok(());
-    }
-
     let data = match &arg.data {
         Some(path) => {
             println!("Loading data from {}...", path);
