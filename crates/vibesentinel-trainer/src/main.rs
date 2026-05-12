@@ -32,7 +32,9 @@ struct Cli {
     #[arg(long, short)]
     sigma: f32,
     #[arg(long, short)]
-    help: bool
+    help: bool,
+    #[arg(long, short)]
+    aug_scale: f32
 }
 
 
@@ -58,6 +60,7 @@ fn main() -> anyhow::Result<()> {
         epochs: arg.epochs,
         learning_rate: arg.learning_rate,
         threshold_sigma: arg.sigma,
+        aug_scale: arg.aug_scale,
         ..Default::default()
     };
 
@@ -66,7 +69,6 @@ fn main() -> anyhow::Result<()> {
     println!("Starting training ({} epochs, lr={}, sigma={})...", arg.epochs, arg.learning_rate, arg.sigma);
     let (model, threshold, mean, std) = train_and_calibrate::<MyAutodiffBackend>(&data, &config, &device);
 
-    // Generate golden features for cross-architecture parity test (#9)
     println!("Generating golden features for parity test...");
     let val_model = model.valid();
     let n_golden = 5.min(data.len());
