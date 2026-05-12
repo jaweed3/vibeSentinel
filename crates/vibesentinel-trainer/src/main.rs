@@ -36,6 +36,9 @@ struct Cli {
     #[arg(long, short)]
     sigma: f32,
     #[arg(long, short)]
+    aug_scale: f32,
+    #[arg(long)]
+    export_json: bool
     aug_scale: f32
 }
 
