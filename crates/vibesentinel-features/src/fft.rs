@@ -108,4 +108,12 @@ mod tests {
         let mags = [0.0f32, 0.0f32, 0.0f32, 0.0f32];
         assert_eq!(spectral_centroid(&mags, 16000.0), 0.0);
     }
+
+    #[test]
+    fn test_centroid_matches_single_peak() {
+        let mags = [0.0, 0.0, 10.0, 0.0];
+        let c = spectral_centroid(&mags, 16000.0);
+
+        assert!(c > 3000.0);
+    }
 }
