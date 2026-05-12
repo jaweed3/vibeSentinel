@@ -127,6 +127,17 @@ fn main() -> anyhow::Result<()> {
     let w_dec1_t = transpose(&w_dec1, LATENT_DIM, HIDDEN2_DIM);
     let w_dec2_t = transpose(&w_dec2, HIDDEN2_DIM, OUTPUT_DIM);
 
+    let exported = ExportedWeights {
+        w_enc1: w_enc1_t.clone(),
+        b_enc1: b_enc1.clone(),
+        w_enc2: w_enc2_t.clone(),
+        b_enc2: b_enc2.clone(),
+    };
+
+    if arg.export_json {
+        export_to_json(&exported, "weights.json")?;
+    }
+
     let output_path = arg.output_path.as_deref().expect("output_path is required");
     println!("Exporting to {}...", output_path);
     export_weights(
