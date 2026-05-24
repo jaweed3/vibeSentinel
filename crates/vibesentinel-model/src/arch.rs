@@ -88,10 +88,13 @@ mod tests {
 
     #[test]
     fn test_normalize_zero_mean() {
-        let raw = [0.0f32; INPUT_DIM];
+        let mut raw = [0.0f32; INPUT_DIM];
+        for i in 0..INPUT_DIM {
+            raw[i] = FEATURE_MEAN[i];
+        }
         let norm = normalize_features(&raw);
         for i in 0..INPUT_DIM {
-            assert!(norm[i].abs() < 1.0, "feature {} normalized to {}, expected near 0", i, norm[i]);
+            assert!(norm[i].abs() < 1.0, "feature {} normalized to {}, expected near 0 for mean input", i, norm[i]);
         }
     }
 
