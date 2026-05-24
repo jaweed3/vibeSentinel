@@ -1,120 +1,188 @@
-# 🛡️ VibeSentinel: Edge Anomaly Detection
+# VibeSentinel — Edge AI Predictive Maintenance
 
-> **Predictive Maintenance at the Edge.** A complete Rust ecosystem for vibration-based anomaly detection using Autoencoders, running directly on ESP32-S3.
+> **100% Rust.** Autoencoder anomaly detection. ESP32-S3 deployment. 524 parameters.
 
----
-
-## 📖 Documentation
-
-*   [**📖 Intern Guide**](./docs/intern-guide.md): Panduan lengkap dari nol — cara pakai, arsitektur, testing, troubleshooting, FAQ.
-*   [**🌐 Overview**](./docs/overview.md): Project goals, target problem, and benefits.
-*   [**🏗️ Architecture**](./docs/architecture.md): Deep dive into crate structure and data flow.
-*   [**🚦 Getting Started**](./docs/getting-started.md): Prerequisites, installation, and deployment.
-*   [**📈 Current State & Roadmap**](./docs/current-state-future-implementation.md): Milestone tracking and future vision.
+<p align="center">
+  <img src="./assets/demo.gif" alt="VibeSentinel Demo — Tests, Training &amp; Inference" width="100%">
+</p>
 
 ---
 
-## 🚀 Overview
+## Table of Contents
 
-VibeSentinel is an end-to-end industrial IoT solution designed to monitor machinery health via vibration analysis. It bypasses the cloud for real-time inference, using a lightweight Deep Learning model (Autoencoder) to detect anomalies directly on the hardware.
-
-### Key Features
-*   **🦀 100% Pure Rust**: From training (desktop) to inference (embedded).
-*   **🧠 Autoencoder Architecture**: Learns the "normal" vibration signature; high reconstruction error signals machine failure.
-*   **⚡ Ultra-Low Latency**: Local feature extraction (FFT + Stats) and neural inference.
-*   **🛰️ No-Std Core**: Core signal processing and model crates are `#![no_std]` for maximum portability.
-
----
-
-## 🏗️ Architecture
-
-The project is structured as a Cargo Workspace:
-
-| Crate | Responsibility | Environment |
-| :--- | :--- | :--- |
-| [`vibesentinel-features`](./crates/vibesentinel-features) | FFT, Kurtosis, RMS, and sliding window management. | `no_std` |
-| [`vibesentinel-model`](./crates/vibesentinel-model) | Matrix math, activations, and the 20-10-4-10-20 AE architecture. | `no_std` |
-| [`vibesentinel-trainer`](./crates/vibesentinel-trainer) | Model training using **Burn** and weight exportation to Rust code. | `std` (Desktop) |
-| [`vibesentinel-firmware`](./crates/vibesentinel-firmware) | ESP32-S3 main loop, LSM6DS3 IMU driver, and LED alerting. | `esp-idf` |
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Pipeline](#pipeline)
+- [Getting Started](#getting-started)
+- [Debugging](#debugging)
+- [Documentation](#documentation)
 
 ---
 
-## 🚦 Getting Started
+## Overview
 
-### 1. Requirements
-*   **Rust**: Nightly toolchain.
-*   **Hardware**: ESP32-S3 board (tested on **Seeed Studio XIAO ESP32S3 Sense**).
-*   **IMU**: External LSM6DS3 (I2C address 0x6A) or MPU-6050 (0x68) — the XIAO does NOT have an onboard IMU.
-*   **Python**: 3.11 (for ESP-IDF build system).
+VibeSentinel is an end-to-end Edge AI system for **predictive maintenance**. It monitors industrial machinery vibration using an Autoencoder neural network running directly on an **ESP32-S3** microcontroller — no cloud, no WiFi required.
 
-### 2. Supported Boards
+### Key Differentiators
 
-| Board | I2C SDA | I2C SCL | LED | Notes |
-|---|---|---|---|---|
-| **XIAO ESP32S3 Sense** | GPIO6 | GPIO7 | GPIO21 | No onboard IMU — connect external sensor via I2C |
-| ESP32-S3 DevKitC | GPIO8 | GPIO9 | GPIO2 | Edit `config.rs` to switch board |
+| | |
+|---|---|
+| **100% Rust** | Training (Burn), inference (no_std), and firmware (ESP-IDF) |
+| **Tiny model** | 20→10→4→10→20 Autoencoder, **524 parameters**, ~2 KB |
+| **no_std core** | Feature extraction and model crates are `#![no_std]`, zero heap, zero alloc |
+| **Cross-arch parity** | Golden vectors verify bit-exact output between x86 and Xtensa |
+| **Structured errors** | E001–E010 error codes for every failure mode |
 
-### 3. Quick Setup (Desktop)
-Use our bootstrap script to fix Python issues and setup the ESP-IDF environment:
-```bash
-chmod +x scripts/*.sh
-./scripts/bootstrap.sh
+### Demo
+
+The recording above walks through:
+
+1. **Cargo test** — 31 unit tests across feature extraction and model inference
+2. **Training** — 50 epochs on synthetic vibration data + calibration report
+3. **Inference** — Golden vector verification for cross-architecture parity
+4. **Export** — Auto-generated `weights.rs` with threshold, mean, std, and golden vectors
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌──────────────────────┐
+│  vibesentinel-  │     │  vibesentinel-   │     │  vibesentinel-       │
+│  features       │────▶│  model            │◀────│  trainer             │
+│  (no_std)       │     │  (no_std)         │     │  (std / Burn)        │
+│  DSP pipeline   │     │  Autoencoder      │     │  Adam · MSE · 200ep  │
+└─────────────────┘     └───────┬──────────┘     └──────────────────────┘
+                                │
+                    ┌───────────▼───────────┐
+                    │  vibesentinel-        │
+                    │  firmware             │
+                    │  ESP32-S3 · LSM6DS3   │
+                    │  200 Hz · LED alert   │
+                    └───────────────────────┘
 ```
 
-### 3. Training the Model
-If you want to re-train the model with your own data or synthetic data:
+### Crates
+
+| Crate | Responsibility | Target |
+|---|---|---|
+| `vibesentinel-features` | FFT, RMS, Kurtosis, Crest Factor, spectral centroid | `no_std` |
+| `vibesentinel-model` | Linear layers, ReLU/Sigmoid activations, AE forward pass | `no_std` |
+| `vibesentinel-trainer` | Adam optimizer, MSE loss, threshold calibration, weight export | Desktop (Burn) |
+| `vibesentinel-firmware` | 200 Hz sampling loop, I2C driver, GPIO alert, health reporting | ESP32-S3 |
+
+---
+
+## Pipeline
+
+```
+Sensor ──▶ 128-sample window ──▶ 26 features ──▶ Z-score norm ──▶ AE ──▶ MSE > threshold? ──▶ LED
+           (3-axis @ 200 Hz)      (FFT + Stats)    (clip ±3)      (20→10→4→10→20)    (E010)
+```
+
+### Feature Vector (26-dim)
+
+- **Per-axis** (X, Y, Z): RMS, Peak, Kurtosis, Crest Factor, FFT bins 0–3 = 8 each × 3 = 24
+- **Cross-axis**: Axial/Radial ratio, Total RMS = 2
+
+### Model
+
+| Layer | Shape | Params |
+|---|---|---|
+| Encoder 1 | 20 → 10 + ReLU | 210 |
+| Encoder 2 | 10 → 4 + ReLU | 44 |
+| Decoder 1 | 4 → 10 + ReLU | 50 |
+| Decoder 2 | 10 → 20 + Sigmoid | 220 |
+| **Total** | | **524** |
+
+---
+
+## Getting Started
+
+### Requirements
+
+- **Rust**: Nightly toolchain (see `rust-toolchain.toml`)
+- **Hardware**: ESP32-S3 (tested on Seeed Studio XIAO ESP32S3 Sense)
+- **IMU**: LSM6DS3 (I2C 0x6A) or MPU-6050 (0x68)
+- **Python**: 3.11 (ESP-IDF build)
+
+### Train
+
 ```bash
+# Synthetic data (default: 200 epochs)
 cargo run --release -p vibesentinel-trainer
-```
-This will update `crates/vibesentinel-model/src/weights.rs` with fresh weights and a calibrated `ANOMALY_THRESHOLD`.
 
-### 4. Flashing Firmware
-Build and flash to your ESP32-S3:
+# Real CSV data with custom params
+cargo run --release -p vibesentinel-trainer -- \
+    --data data/normal_vibration.csv \
+    --epochs 200 \
+    --learning-rate 0.001 \
+    --sigma 3.0
+```
+
+### Test
+
+```bash
+# Core no_std crates
+cargo test -p vibesentinel-features -p vibesentinel-model
+```
+
+### Flash
+
 ```bash
 ./scripts/build.sh
-# To flash (ensure espflash is installed):
-espflash flash target/xtensa-esp32s3-espidf/release/vibesentinel-firmware
+espflash flash target/xtensa-esp32s3-espidf/release/vibesentinel-firmware --monitor
 ```
 
 ---
 
-## 📊 Pipeline Logic
+## Debugging
 
-1.  **Sampling**: 200Hz acceleration data from X, Y, Z axes.
-2.  **Windowing**: 128-sample sliding window.
-3.  **Feature Extraction**:
-    *   **Time Domain**: RMS, Peak-to-Peak, Kurtosis, Crest Factor.
-    *   **Frequency Domain**: FFT bin magnitudes.
-    *   **Relational**: Axial/Radial energy ratios.
-4.  **Inference**:
-    *   Normalize features using training-time Mean/Std.
-    *   Forward pass through the Autoencoder.
-    *   Compare Input vs. Output (MSE).
-5.  **Alert**: If `MSE > ANOMALY_THRESHOLD`, trigger GPIO Alert.
+Structured error codes printed as `[E###]` over serial:
 
-## 🐛 Debugging & Error Codes
+| Code | Meaning | Fix |
+|---|---|---|
+| E001 | I2C timeout | Check wiring, pull-up resistors |
+| E002 | IMU not detected | Check 3.3V, I2C address (0x6A) |
+| E003 | Sensor frozen | Tap sensor, check connection |
+| E005 | Heap < 50 KB | Check for leaks |
+| E007 | NaN in features | Check sensor data |
+| E008 | NaN in inference | Corrupted weights |
+| E009 | I2C recovery failed | Power-cycle sensor |
+| E010 | Signal saturation | Increase G-range |
 
-All firmware errors use structured codes. Grep serial output for `[E###]`:
-
-| Code | Name | Meaning | Fix |
-|---|---|---|---|
-| **E001** | I2C_TIMEOUT | I2C bus not responding | Check SDA/SCL wiring, pull-up resistors |
-| **E002** | IMU_INIT_FAIL | IMU not detected | Check 3.3V power, verify I2C address (0x6A) |
-| **E003** | SENSOR_FROZEN | Signal variance near zero | Tap sensor, check physical connection |
-| **E005** | HEAP_LOW | Free heap < 50KB | Check for memory leaks |
-| **E007** | FEATURE_NAN | NaN in feature vector | Input signal anomaly, check sensor data |
-| **E008** | INFERENCE_NAN | NaN in model output | Corrupted weights.rs or extreme input |
-| **E009** | I2C_RECOVERY_FAIL | I2C bus recovery failed | Power-cycle sensor, check EMI shielding |
-| **E010** | SATURATION | Signal at range limit | Increase G-range (8G → 16G) |
-
-Health reports print every 60s: `[HEALTH] uptime=... windows=... heap=... errors=...`
+Health reports: `[HEALTH] uptime=... windows=... heap=... errors=...`
 
 ---
 
-## 🛠️ Developed with
-*   **Burn**: For deep learning training.
-*   **microfft**: For embedded spectral analysis.
-*   **ESP-IDF-HAL**: For hardware abstraction.
+## Documentation
+
+| Guide | Description |
+|---|---|
+| [Intern Guide](./docs/intern-guide.md) | Full walkthrough (Indonesian) |
+| [Architecture](./docs/architecture.md) | Crate responsibilities & data flow |
+| [Getting Started](./docs/getting-started.md) | Setup & deployment |
+| [Roadmap](./docs/current-state-future-implementation.md) | Milestones & future vision |
+
+### Planning
+
+| File | Description |
+|---|---|
+| [`vibesentinel_context.md`](./vibesentinel_context.md) | Technical reference: constants, build commands, file map, conventions |
+| [`agents.md`](./agents.md) | AI agent configuration: roles, workflows, phase guidance |
+| [`design.md`](./design.md) | Design decisions (ADRs): why Rust, why autoencoder, trade-offs |
+| [GitHub Issues](https://github.com/jaweed3/vibeSentinel/issues) | Phase 2–5 milestones with granular tasks |
+
+### Roadmap
+
+| Phase | Focus | Target |
+|---|---|---|
+| 1 | Core: features, model, trainer, firmware | Done |
+| [2](https://github.com/jaweed3/vibeSentinel/milestone/3) | Connectivity: WiFi, MQTT, OTA, SD card | Jul 2026 |
+| [3](https://github.com/jaweed3/vibeSentinel/milestone/4) | Robustness: multi-model, adaptive threshold, multi-sensor | Sep 2026 |
+| [4](https://github.com/jaweed3/vibeSentinel/milestone/5) | Advanced ML: INT8, fine-tuning, sensor fusion | Nov 2026 |
+| [5](https://github.com/jaweed3/vibeSentinel/milestone/6) | Production: dashboard, notifications, CI/CD, scale | Jan 2027 |
 
 ---
-*Developed by Gemini CLI for jaweed3.*
+
+*Built with [Burn](https://burn.dev), [microfft](https://crates.io/crates/microfft), and [ESP-IDF-HAL](https://github.com/esp-rs/esp-idf-hal).*
