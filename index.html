@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VibeSentinel — Edge AI Predictive Maintenance. Autoencoder anomaly detection on ESP32-S3. 100% Rust. No cloud." />
+  <meta property="og:title" content="VibeSentinel — Edge AI Predictive Maintenance" />
+  <meta property="og:description" content="Predict machine failure before it happens. On a $10 chip. No cloud. No WiFi." />
+  <meta property="og:url" content="https://jaweed3.github.io/vibeSentinel/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="VibeSentinel — Edge AI Predictive Maintenance" />
+  <meta name="twitter:description" content="Predict machine failure before it happens. On a $10 chip. No cloud. No WiFi." />
+  <title>VibeSentinel — Edge AI Predictive Maintenance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28' font-family='monospace' font-weight='bold' fill='%2300f0ff'%3EVS%3C/text%3E%3C/svg%3E" />
+  <script type="module" crossorigin src="/vibeSentinel/assets/index-CCDZO8mq.js"></script>
+  <link rel="stylesheet" crossorigin href="/vibeSentinel/assets/index-cXQCWHZE.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner container">
+      <a href="#" class="nav-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" class="nav-logo-icon">
+          <path d="M4 14L10 8L14 12L20 4L24 8" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="8" r="2" fill="var(--accent2)"/>
+        </svg>
+        <span>VibeSentinel</span>
+      </a>
+      <div class="nav-links">
+        <a href="#pipeline">Pipeline</a>
+        <a href="#tech">Tech</a>
+        <a href="#demo">Demo</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="https://github.com/jaweed3/vibeSentinel" target="_blank" rel="noopener" class="nav-gh">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero" id="hero">
+    <canvas class="hero-canvas" id="heroCanvas"></canvas>
+    <div class="hero-content container">
+      <div class="hero-badge">Edge AI · Predictive Maintenance · 100% Rust</div>
+      <h1 class="hero-title">
+        Predict machine failure<br />
+        <span class="hero-title-accent">before it happens.</span>
+      </h1>
+      <p class="hero-subtitle">
+        On a <strong>$10 ESP32-S3</strong>. No cloud. No WiFi. Just a
+        <strong>524-parameter autoencoder</strong> running real-time inference
+        at <strong>&lt;1ms</strong> per window.
+      </p>
+      <div class="hero-cta">
+        <a href="https://github.com/jaweed3/vibeSentinel" target="_blank" rel="noopener" class="btn btn-primary">
+          View on GitHub
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H8M17 7v9"/></svg>
+        </a>
+        <a href="#pipeline" class="btn btn-outline">How it works</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="metrics" id="metrics">
+    <div class="metrics-inner container">
+      <div class="metric" data-target="524"><span class="metric-num">0</span><span class="metric-label">Parameters</span></div>
+      <div class="metric" data-target="26"><span class="metric-num">0</span><span class="metric-label">Feature Dimensions</span></div>
+      <div class="metric" data-target="200"><span class="metric-num">0</span><span class="metric-label">Sample Rate (Hz)</span></div>
+      <div class="metric" data-target="128"><span class="metric-num">0</span><span class="metric-label">Window Size</span></div>
+      <div class="metric" data-target="31"><span class="metric-num">0</span><span class="metric-label">Unit Tests</span></div>
+      <div class="metric" data-target="10"><span class="metric-num">0</span><span class="metric-label">Hardware Cost ($)</span></div>
+    </div>
+  </section>
+
+  <section class="problem" id="problem">
+    <div class="container">
+      <h2 class="section-title">The \$1 Trillion Problem</h2>
+      <p class="section-desc">
+        Unplanned downtime costs industrial manufacturing <strong>$1 trillion</strong> annually.
+        Most factories still rely on reactive maintenance — fix it when it breaks.
+        Scheduled maintenance wastes billions replacing healthy parts.
+      </p>
+      <div class="problem-cards">
+        <div class="problem-card reactive">
+          <h3>Reactive</h3>
+          <p>Fix when it breaks</p>
+          <span class="cost high">$$$$$$</span>
+        </div>
+        <div class="problem-card scheduled">
+          <h3>Scheduled</h3>
+          <p>Replace on calendar</p>
+          <span class="cost med">$$$</span>
+        </div>
+        <div class="problem-card predictive">
+          <h3>Predictive</h3>
+          <p>Predict before fail</p>
+          <span class="cost low">$</span>
+        </div>
+      </div>
+      <p class="section-desc">
+        Current "smart" solutions stream raw vibration data to the cloud — expensive, 
+        latency-prone, privacy-hostile, and impractical at scale.
+      </p>
+    </div>
+  </section>
+
+  <section class="solution" id="solution">
+    <div class="container">
+      <h2 class="section-title">Edge intelligence. <span class="accent">Zero compromises.</span></h2>
+      <div class="solution-grid">
+        <div class="solution-text">
+          <p>
+            We put a neural network on a <strong>$10 ESP32-S3 microcontroller</strong>.
+            It learns your machine's normal vibration signature, then detects anomalies
+            in real-time — right on the sensor.
+          </p>
+          <ul class="solution-list">
+            <li>No cloud dependency</li>
+            <li>No bandwidth costs</li>
+            <li>No privacy risks</li>
+            <li>~50&micro;s inference time</li>
+            <li>Works offline, always</li>
+          </ul>
+        </div>
+        <div class="solution-pipeline">
+          <div class="pipe-step"><span class="pipe-label">IMU</span><span class="pipe-desc">LSM6DS3 · 200Hz · I2C</span></div>
+          <div class="pipe-arrow">&darr;</div>
+          <div class="pipe-step"><span class="pipe-label">Window</span><span class="pipe-desc">128 samples · 640ms · 50% overlap</span></div>
+          <div class="pipe-arrow">&darr;</div>
+          <div class="pipe-step"><span class="pipe-label">Extract</span><span class="pipe-desc">Hann · RFFT · Stats · 26-dim</span></div>
+          <div class="pipe-arrow">&darr;</div>
+          <div class="pipe-step"><span class="pipe-label">Normalize</span><span class="pipe-desc">Z-score · Clip &plusmn;3</span></div>
+          <div class="pipe-arrow">&darr;</div>
+          <div class="pipe-step"><span class="pipe-label">Autoencoder</span><span class="pipe-desc">20→10→4→10→20 · 524 params</span></div>
+          <div class="pipe-arrow">&darr;</div>
+          <div class="pipe-step alert-step"><span class="pipe-label">MSE &gt; Threshold?</span><span class="pipe-desc">3-sigma calibration · E010 alert</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tech" id="tech">
+    <div class="container">
+      <h2 class="section-title">Technology</h2>
+      <div class="tech-grid">
+        <div class="tech-card">
+          <div class="tech-icon">&#x2699;</div>
+          <h3>100% Rust</h3>
+          <p>Training (Burn) to firmware (no_std). Same language, zero serialization bugs.</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-icon">&boxbox;</div>
+          <h3>Autoencoder</h3>
+          <p>20→10→4→10→20. 524 parameters. Unsupervised — train on normal data only.</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-icon">&oplus;</div>
+          <h3>no_std Core</h3>
+          <p>Zero heap, zero allocator. Fixed-size arrays. Runs without OS on MCU.</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-icon">&check;</div>
+          <h3>Golden Vectors</h3>
+          <p>Cross-architecture parity tests. x86 == Xtensa within 1e-5 tolerance.</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-icon">&#x1F4A1;</div>
+          <h3>ESP32-S3</h3>
+          <p>200Hz I2C sampling. LSM6DS3/MPU-6050. GPIO alert. Health reporting.</p>
+        </div>
+        <div class="tech-card">
+          <div class="tech-icon">&Delta;</div>
+          <h3>3-Sigma Threshold</h3>
+          <p>Statistical process control. Adjustable via --sigma CLI flag.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pipeline" id="pipeline">
+    <div class="container">
+      <h2 class="section-title">How It Works</h2>
+      <div class="pipeline-steps">
+        <div class="pstep">
+          <div class="pstep-num">1</div>
+          <div class="pstep-body">
+            <h3>Sample</h3>
+            <p>LSM6DS3 reads 3-axis acceleration at 200Hz. 128 samples per window (640ms), 50% overlap between consecutive windows.</p>
+            <code class="pstep-code">imu.read_accel(&amp;mut buf); // 200Hz, I2C</code>
+          </div>
+        </div>
+        <div class="pstep">
+          <div class="pstep-num">2</div>
+          <div class="pstep-body">
+            <h3>Extract</h3>
+            <p>Hann window → 128-pt RFFT → magnitude spectrum. Per-axis: RMS, Peak, Kurtosis, Crest Factor, FFT bins 0-3. Cross-axis: Axial/Radial ratio, Total RMS. → 26-dim feature vector.</p>
+            <code class="pstep-code">let features = extract_features(&amp;window); // 26 f32</code>
+          </div>
+        </div>
+        <div class="pstep">
+          <div class="pstep-num">3</div>
+          <div class="pstep-body">
+            <h3>Infer</h3>
+            <p>Z-score normalization (clip ±3). Autoencoder forward pass: 20→10→4→10→20 with ReLU/Sigmoid. 524 parameters, ~2KB, &lt;1ms on ESP32-S3.</p>
+            <code class="pstep-code">let mse = model.forward(&amp;normalized); // &lt;1ms</code>
+          </div>
+        </div>
+        <div class="pstep">
+          <div class="pstep-num">4</div>
+          <div class="pstep-body">
+            <h3>Detect</h3>
+            <p>MSE reconstruction error > ANOMALY_THRESHOLD? 3-sigma calibrated during training. Triggers GPIO LED alert (E010) + structured serial health report.</p>
+            <code class="pstep-code">if mse &gt; THRESHOLD { alert.set_high(); } // E010</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo">
+    <div class="container">
+      <h2 class="section-title">See It In Action</h2>
+      <div class="demo-wrapper">
+        <div class="demo-media">
+          <img src="/vibeSentinel/demo.gif" alt="VibeSentinel Demo — Tests, Training &amp; Inference" class="demo-gif" />
+        </div>
+        <div class="demo-tabs">
+          <button class="demo-tab active" data-tab="test">Test</button>
+          <button class="demo-tab" data-tab="train">Train</button>
+          <button class="demo-tab" data-tab="golden">Golden Vectors</button>
+          <button class="demo-tab" data-tab="export">Export</button>
+        </div>
+        <div class="demo-panels">
+          <div class="demo-panel active" data-panel="test">
+            <p><strong>Cargo test</strong> — 31 unit tests across feature extraction and model inference. All pass.</p>
+          </div>
+          <div class="demo-panel" data-panel="train">
+            <p><strong>Training</strong> — 50 epochs on synthetic vibration data. Adam optimizer. Calibration report with 3-sigma threshold.</p>
+          </div>
+          <div class="demo-panel" data-panel="golden">
+            <p><strong>Golden Vectors</strong> — 5 pre-computed inputs verify x86 output matches Xtensa output within 1e-5 tolerance.</p>
+          </div>
+          <div class="demo-panel" data-panel="export">
+            <p><strong>Export</strong> — Auto-generated <code>weights.rs</code> with weights, biases, threshold, mean, std, and golden vectors.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="roadmap" id="roadmap">
+    <div class="container">
+      <h2 class="section-title">Roadmap</h2>
+      <div class="timeline">
+        <div class="tl-phase done" data-phase="1">
+          <div class="tl-badge done-badge">Done</div>
+          <div class="tl-content">
+            <h3>Phase 1 — Core</h3>
+            <ul>
+              <li>Feature extraction (time + frequency domain)</li>
+              <li>Autoencoder inference (no_std)</li>
+              <li>Burn training pipeline + weight export</li>
+              <li>ESP32-S3 firmware with I2C IMU + GPIO alert</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-phase now" data-phase="2">
+          <div class="tl-badge now-badge">Now</div>
+          <div class="tl-content">
+            <h3>Phase 2 — Connectivity</h3>
+            <ul>
+              <li>WiFi telemetry via MQTT</li>
+              <li>Over-the-air (OTA) firmware updates</li>
+              <li>SD card data logging</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-phase next" data-phase="3">
+          <div class="tl-badge next-badge">Next</div>
+          <div class="tl-content">
+            <h3>Phase 3 — Robustness</h3>
+            <ul>
+              <li>Multi-model ensemble for different machine states</li>
+              <li>Adaptive threshold (EMA of recent MSE)</li>
+              <li>Multi-sensor support via embedded-hal traits</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-phase soon" data-phase="4">
+          <div class="tl-badge soon-badge">Soon</div>
+          <div class="tl-content">
+            <h3>Phase 4 — Advanced ML</h3>
+            <ul>
+              <li>INT8 quantization for lower latency</li>
+              <li>On-device fine-tuning (SGD)</li>
+              <li>Sensor fusion (temperature + current)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-phase later" data-phase="5">
+          <div class="tl-badge later-badge">Later</div>
+          <div class="tl-content">
+            <h3>Phase 5 — Product</h3>
+            <ul>
+              <li>Next.js + Chart.js dashboard</li>
+              <li>Telegram Bot notifications</li>
+              <li>Multi-device topology + CI/CD</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="cta">
+    <div class="container">
+      <h2 class="section-title">Ready to build?</h2>
+      <div class="cta-code">
+        <code>git clone https://github.com/jaweed3/vibeSentinel.git</code>
+        <code>cd vibeSentinel</code>
+        <code>cargo run --release -p vibesentinel-trainer</code>
+      </div>
+      <div class="cta-buttons">
+        <a href="https://github.com/jaweed3/vibeSentinel" target="_blank" rel="noopener" class="btn btn-primary">Star on GitHub</a>
+        <a href="https://github.com/jaweed3/vibeSentinel/blob/main/docs/getting-started.md" target="_blank" rel="noopener" class="btn btn-outline">Getting Started</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <strong>VibeSentinel</strong>
+        <span>Edge AI Predictive Maintenance</span>
+      </div>
+      <div class="footer-tech">
+        Built with <a href="https://burn.dev" target="_blank" rel="noopener">Burn</a>,
+        <a href="https://crates.io/crates/microfft" target="_blank" rel="noopener">microfft</a>,
+        <a href="https://github.com/esp-rs/esp-idf-hal" target="_blank" rel="noopener">ESP-IDF-HAL</a>
+      </div>
+      <div class="footer-foot">
+        <span>100% Rust · MIT License · Open Source</span>
+        <a href="https://github.com/jaweed3/vibeSentinel" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
