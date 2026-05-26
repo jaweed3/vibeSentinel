@@ -2,3 +2,5 @@
 .embuild/
 .git/
 target/
+node_modules/
+landing/dist/
